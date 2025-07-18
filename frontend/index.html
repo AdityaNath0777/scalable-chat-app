@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WebSocket Client</title>
+    <!-- Tailwind CSS CDN for quick styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      /* Custom styles for Inter font */
+      body {
+        font-family: "Inter", sans-serif;
+      }
+    </style>
+  </head>
+  <body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+    <div class="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
+      <h1 class="text-2xl font-bold text-gray-800 mb-6 text-center">
+        WebSocket Chat Client
+      </h1>
+
+      <!-- Connection Status -->
+      <div id="status" class="mb-4 p-3 rounded-lg text-center font-medium">
+        <span class="text-yellow-700 bg-yellow-100">Connecting...</span>
+      </div>
+
+      <!-- Joint Chat Room and Send Button -->
+      <div class="flex mb-4 justify-end">
+        <button
+          id="join-room-button"
+          class="bg-blue-600 text-white px-5 py-3 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200 cursor-pointer"
+        >
+          Join Room
+        </button>
+      </div>
+
+      <!-- Message Input and Send Button -->
+      <div class="flex mb-4">
+        <input
+          type="text"
+          id="messageInput"
+          placeholder="Type your message..."
+          class="flex-grow p-3 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <button
+          id="sendButton"
+          class="bg-blue-600 text-white px-5 py-3 rounded-r-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200 cursor-pointer"
+          disabled
+        >
+          Send
+        </button>
+      </div>
+
+      <!-- Messages Display Area -->
+      <div
+        id="messages"
+        class="bg-gray-50 p-4 rounded-lg h-64 overflow-y-auto border border-gray-200"
+      >
+        <p class="text-gray-500 text-sm">Messages will appear here...</p>
+      </div>
+    </div>
+
+    <script>
+      // Get references to DOM elements
+      const statusDiv = document.getElementById("status");
+      const messageInput = document.getElementById("messageInput");
+      const sendButton = document.getElementById("sendButton");
+      const messagesDiv = document.getElementById("messages");
+      const joinRoomButton = document.getElementById("join-room-button");
+      const roomId = "room:123456";
+
+      // Define the WebSocket server URL.
+      // IMPORTANT: Ensure this matches the actual port your WebSocket server is listening on.
+      // Based on previous conversation, it's likely 8080.
+      const WS_SERVER_URL = "ws://localhost:3000/";
+
+      let ws; // Declare WebSocket variable
+
+      // Function to append messages to the display area
+      function appendMessage(message, type = "received") {
+        const p = document.createElement("p");
+        p.textContent = message;
+        p.classList.add("p-2", "rounded-lg", "mb-2", "break-words"); // Add basic styling
+        if (type === "sent") {
+          p.classList.add("bg-blue-100", "text-blue-800", "self-end");
+        } else if (type === "received") {
+          p.classList.add("bg-green-100", "text-green-800");
+        } else if (type === "info") {
+          p.classList.add("bg-gray-200", "text-gray-700", "text-sm", "italic");
+        }
+        messagesDiv.appendChild(p);
+        // Scroll to the bottom to show the latest message
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+      }
+
+      // Function to update connection status
+      function updateStatus(message, colorClass) {
+        statusDiv.textContent = message;
+        statusDiv.className = `mb-4 p-3 rounded-lg text-center font-medium ${colorClass}`;
+      }
+
+      // Function to establish WebSocket connection
+      function connectWebSocket() {
+        updateStatus("Connecting...", "text-yellow-700 bg-yellow-100");
+        sendButton.disabled = true;
+
+        ws = new WebSocket(WS_SERVER_URL);
+
+        // Event listener for when the connection is established
+        ws.onopen = () => {
+          updateStatus("Connected!", "text-green-700 bg-green-100");
+          sendButton.disabled = false;
+          appendMessage("You are connected to the WebSocket server.", "info");
+        };
+
+        // Event listener for receiving messages from the server
+        ws.onmessage = (event) => {
+          appendMessage(`Server: ${event.data}`, "received");
+        };
+
+        // Event listener for errors
+        ws.onerror = (error) => {
+          console.error("WebSocket Error:", error);
+          updateStatus("Error! Check console.", "text-red-700 bg-red-100");
+          sendButton.disabled = true;
+          appendMessage(
+            "WebSocket connection error. See console for details.",
+            "info"
+          );
+        };
+
+        // Event listener for when the connection is closed
+        ws.onclose = () => {
+          updateStatus("Disconnected.", "text-red-700 bg-red-100");
+          sendButton.disabled = true;
+          appendMessage(
+            "WebSocket connection closed. Attempting to reconnect in 5 seconds...",
+            "info"
+          );
+          // Attempt to reconnect after a delay
+          setTimeout(connectWebSocket, 5000);
+        };
+      }
+
+      // Event listener for the send button click
+      sendButton.addEventListener("click", () => {
+        const message = messageInput.value.trim();
+        const payload = JSON.stringify({ type: "chat", room: roomId, message });
+
+        if (message && ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(payload);
+          appendMessage(`You: ${message}`, "sent");
+          messageInput.value = ""; // Clear the input field
+        }
+      });
+
+      // Allow sending messages by pressing Enter key
+      messageInput.addEventListener("keypress", (event) => {
+        if (event.key === "Enter") {
+          sendButton.click();
+        }
+      });
+
+      joinRoomButton.addEventListener("click", () => {
+        const payload = JSON.stringify({ type: "join-room", room: roomId });
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(payload);
+          appendMessage(`You: requested to join room ${roomId}`, "sent");
+        }
+      });
+
+      // Initial connection attempt when the page loads
+      connectWebSocket();
+    </script>
+  </body>
+</html>
