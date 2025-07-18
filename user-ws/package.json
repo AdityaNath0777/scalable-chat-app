@@ -17,8 +17,12 @@
   ],
   "author": "AdityaNath0777",
   "license": "ISC",
+  "dependencies": {
+    "ws": "^8.18.3"
+  },
   "devDependencies": {
     "@types/node": "^24.0.14",
+    "@types/ws": "^8.18.1",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.8.3"
